@@ -1,101 +1,69 @@
 {
-  symlinkJoin,
+  lib,
+  stdenv,
   fetchFromGitHub,
-  writeScriptBin,
-  writeTextFile,
-  makeWrapper,
+  writeText,
   python311,
   snapraid,
   snapraid-btrfs,
   snapper,
-}: let
-  name = "snapraid-btrfs-runner";
-  deps = [python311 config snapraid snapraid-btrfs snapper];
+  makeWrapper,
+}:
+stdenv.mkDerivation rec {
+  pname = "snapraid-btrfs-runner";
+  version = "1.0.0";
+
   src = fetchFromGitHub {
     owner = "fmoledina";
     repo = "snapraid-btrfs-runner";
     rev = "afb83c67c61fdf3769aab95dba6385184066e119";
     sha256 = "M8LXxsc7jEn5GsiXAKykmFUgsij2aOIenw1Dx+/5Rww=";
   };
-  config = writeTextFile {
-    name = "snapraid-btrfs-runner.conf";
-    text = ''
-      [snapraid-btrfs]
-      ; path to the snapraid-btrfs executable (e.g. /usr/bin/snapraid-btrfs)
-      executable = ${snapraid-btrfs}/bin/snapraid-btrfs
-      ; optional: specify snapper-configs and/or snapper-configs-file as specified in snapraid-btrfs
-      ; only one instance of each can be specified in this config
-      snapper-configs =
-      snapper-configs-file =
-      ; specify whether snapraid-btrfs should run the pool command after the sync, and optionally specify pool-dir
-      pool = false
-      pool-dir =
-      ; specify whether snapraid-btrfs-runner should automatically clean up all but the last snapraid-btrfs sync snapshot after a successful sync
-      cleanup = true
 
-      [snapper]
-      ; path to snapper executable (e.g. /usr/bin/snapper)
-      executable = ${snapper}/bin/snapper
+  nativeBuildInputs = [makeWrapper];
+  buildInputs = [python311 snapraid snapraid-btrfs snapper];
 
-      [snapraid]
-      ; path to the snapraid executable (e.g. /usr/bin/snapraid)
-      executable = ${snapraid}/bin/snapraid
-      ; path to the snapraid config to be used
-      config = /etc/snapraid.conf
-      ; abort operation if there are more deletes than this, set to -1 to disable
-      deletethreshold = 40
-      ; if you want touch to be ran each time
-      touch = false
+  config = writeText "snapraid-btrfs-runner.conf" ''
+    [snapraid-btrfs]
+    executable = ${snapraid-btrfs}/bin/snapraid-btrfs
+    cleanup = true
 
-      [logging]
-      ; logfile to write to, leave empty to disable
-      file =
-      ; maximum logfile size in KiB, leave empty for infinite
-      maxsize = 5000
+    [snapper]
+    executable = ${snapper}/bin/snapper
 
-      [email]
-      ; when to send an email, comma-separated list of [success, error]
-      sendon = success,error
-      ; set to false to get full programm output via email
-      short = true
-      subject = [SnapRAID] Status Report:
-      from =
-      to =
-      ; maximum email size in KiB
-      maxsize = 500
+    [snapraid]
+    executable = ${snapraid}/bin/snapraid
+    config = /etc/snapraid.conf
+    deletethreshold = 40
 
-      [smtp]
-      host =
-      ; leave empty for default port
-      port =
-      ; set to "true" to activate
-      ssl = false
-      tls = false
-      user =
-      password =
+    [logging]
+    maxsize = 5000
 
-      [scrub]
-      ; set to true to run scrub after sync
-      enabled = false
-      ; plan can be 0-100 percent, new, bad, or full
-      plan = 12
-      ; only used for percent scrub plan
-      older-than = 10
-    '';
-    destination = "/etc/${name}";
+    [email]
+    sendon = success,error
+    short = true
+    maxsize = 500
+
+    [scrub]
+    enabled = false
+    plan = 12
+    older-than = 10
+  '';
+
+  installPhase = ''
+    install -Dm755 ${src}/snapraid-btrfs-runner.py $out/bin/${pname}
+    sed -i '1s|^|#!/usr/bin/env python3\n|' $out/bin/${pname}
+    wrapProgram $out/bin/${pname} \
+      --set PATH ${lib.makeBinPath [python311 snapraid snapraid-btrfs snapper]} \
+      --add-flags "-c ${config}"
+    install -Dm644 ${config} $out/etc/${pname}.conf
+  '';
+
+  meta = with lib; {
+    description = "Runner script for SnapRAID and btrfs integration";
+    homepage = "https://github.com/fmoledina/snapraid-btrfs-runner";
+    license = licenses.mit;
+    maintainers = [maintainers.nd];
+    platforms = platforms.all;
   };
-  script =
-    (
-      writeScriptBin name
-      (builtins.readFile (src + "/snapraid-btrfs-runner.py"))
-    )
-    .overrideAttrs (old: {
-      buildCommand = "${old.buildCommand}\n patchShebangs $out";
-    });
-in
-  symlinkJoin {
-    inherit name;
-    paths = [script] ++ deps;
-    buildInputs = [makeWrapper python311];
-    postBuild = "wrapProgram $out/bin/${name} --add-flags '-c ${config}/etc/snapraid-btrfs-runner' --set PATH $out/bin";
-  }
+}
