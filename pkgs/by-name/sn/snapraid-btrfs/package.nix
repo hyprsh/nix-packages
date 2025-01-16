@@ -16,10 +16,10 @@ stdenv.mkDerivation rec {
   version = "1.0.0";
 
   src = fetchFromGitHub {
-    owner = "D34DC3N73R";
+    owner = "automorphism88";
     repo = "snapraid-btrfs";
-    rev = "8cdbf54100c2b630ee9fcea11b14f58a894b4bf3";
-    sha256 = "IQgL55SMwViOnl3R8rQ9oGsanpFOy4esENKTwl8qsgo=";
+    rev = "6492a45ad55c389c0301075dcc8bc8784ef3e274";
+    sha256 = "1xd2wqvp0dnsys6wc8ambisgmp0l3bw04pk49nivr3vvbj70myb0";
   };
 
   nativeBuildInputs = [makeWrapper];
@@ -34,9 +34,9 @@ stdenv.mkDerivation rec {
 
   meta = with lib; {
     description = "Wrapper script for integrating SnapRAID and Btrfs";
-    homepage = "https://github.com/D34DC3N73R/snapraid-btrfs";
+    homepage = "https://github.com/automorphism88/snapraid-btrfs";
     license = licenses.mit;
-    maintainers = [maintainers.yourname];
+    maintainers = [maintainers.nd];
     platforms = platforms.all;
   };
 }
